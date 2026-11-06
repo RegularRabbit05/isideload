@@ -130,11 +130,28 @@ async fn main() {
     if devs.is_empty() {
         panic!("No devices found");
     }
-
-    let provider = devs
-        .first()
-        .unwrap()
-        .to_provider(UsbmuxdAddr::from_env_var().unwrap(), "isideload-demo");
+    
+    let selected_device = if devs.len() == 1 {
+        devs.first().unwrap()
+    } else {
+        println!("Multiple devices found. Please select a target device:");
+        for (index, dev) in devs.iter().enumerate() {
+            println!("{}: Device UDID {}", index + 1, dev.udid);
+        }
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        let selection = input.trim().parse::<usize>().unwrap_or(0);
+        
+        if selection == 0 || selection > devs.len() {
+            panic!("Invalid device selection");
+        }
+        &devs[selection - 1]
+    };
+    
+    let provider = selected_device.to_provider(
+        UsbmuxdAddr::from_env_var().unwrap(),
+        "isideload-demo"
+    );
 
     let team_selection_prompt = |teams: &Vec<DeveloperTeam>| {
         println!("Please select a team:");
