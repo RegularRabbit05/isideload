@@ -30,10 +30,10 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -55,8 +55,38 @@ jobs:
       - name: Build
         run: cargo build -p minimal
 
+      - name: Rename binary for release
+        shell: bash
+        run: mv target/debug/${{ matrix.artifact_name }} target/debug/${{ matrix.asset_name }}
+
       - name: Upload binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.asset_name }}
-          path: target/debug/${{ matrix.artifact_name }}
+          path: target/debug/${{ matrix.asset_name }}
+
+  release:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Get commit message for title
+        id: commit_info
+        run: echo "title=$(git log -1 --pretty=format:%s)" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.run_id }}
+          name: ${{ steps.commit_info.outputs.title }}
+          files: release-artifacts/*
